@@ -26,12 +26,14 @@ jobs:
           files: |
              content/**/**.md
       - name: Check for capital letters or spaces in content directory
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
           echo "Checking for capital letters or spaces in content directory paths (excluding file extensions)..."
 
           tmpfile=$(mktemp)
 
-          git diff --name-only --diff-filter=d origin/${{ github.base_ref }}...HEAD |
+          git diff --name-only --diff-filter=d "origin/${BASE_REF}...HEAD" |
             grep '^content/' |
             while read -r path; do
               name=$(basename "$path")
@@ -60,15 +62,23 @@ jobs:
         run: pip install -r tools/requirements.txt
       - name: Validate _index.md files
         if: steps.changed-markdown-files.outputs.any_changed == 'true'
+        env:
+          CHANGED_FILES: ${{ steps.changed-markdown-files.outputs.all_changed_files }}
         run: |
           echo "Checking YAML fields for changed learning paths..."
-          python3 tools/verify_index_fields.py ${{ steps.changed-markdown-files.outputs.all_changed_files }}
+          # Unquoted on purpose: split the space-separated list into arguments.
+          # Expanding a variable never runs command substitution in its value.
+          # shellcheck disable=SC2086
+          python3 tools/verify_index_fields.py $CHANGED_FILES
       - name: Run test suite for all changed .md files
         id: run-suite
         if: steps.changed-markdown-files.outputs.any_changed == 'true'
+        env:
+          CHANGED_FILES: ${{ steps.changed-markdown-files.outputs.all_changed_files }}
         # Run the test suite
         run: |
-              set -o pipefail; ./tools/test_lp.sh ${{ steps.changed-markdown-files.outputs.all_changed_files }} 2>&1 | tee test-lp-output.txt
+              # shellcheck disable=SC2086
+              set -o pipefail; ./tools/test_lp.sh $CHANGED_FILES 2>&1 | tee test-lp-output.txt
       - name: Parse test suite errors
         id: test-suite-state
         if: success()
