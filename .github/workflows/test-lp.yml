@@ -67,7 +67,9 @@ jobs:
         run: |
           echo "Checking YAML fields for changed learning paths..."
           # Unquoted on purpose: split the space-separated list into arguments.
-          # Expanding a variable never runs command substitution in its value.
+          # Expanding a variable never runs command substitution in its value,
+          # and set -f stops glob characters in a file name from expanding.
+          set -f
           # shellcheck disable=SC2086
           python3 tools/verify_index_fields.py $CHANGED_FILES
       - name: Run test suite for all changed .md files
@@ -77,6 +79,7 @@ jobs:
           CHANGED_FILES: ${{ steps.changed-markdown-files.outputs.all_changed_files }}
         # Run the test suite
         run: |
+              set -f
               # shellcheck disable=SC2086
               set -o pipefail; ./tools/test_lp.sh $CHANGED_FILES 2>&1 | tee test-lp-output.txt
       - name: Parse test suite errors
